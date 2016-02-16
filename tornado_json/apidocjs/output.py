@@ -249,7 +249,13 @@ def get_output_js(apidoc, url, rh_class):
 
 def generate_apidoc_skeleton(routes,
                              content_output_path="apidocjs_input",
-                             doc_output_path="doc", **apidoc):
+                             doc_output_path="doc", **kw):
+    apidoc = {
+        'name': "My project",
+        'title': "My Tornado-JSON based project",
+        'version': '0.0.1',
+    }
+    apidoc.update(kw)
     output_path = join(content_output_path, apidoc['version'])
 
     if not exists(output_path):
