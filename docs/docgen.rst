@@ -94,3 +94,8 @@ Use the **apidocjs** parameter on
 More information about thoses pameters you can find at
 
 `Configuration <http://apidocjs.com/#configuration>`_.
+
+
+
+Caveats
+=======
