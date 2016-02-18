@@ -93,12 +93,24 @@ def get_rh_methods(rh):
 
 
 class P(object):
+    """ Helper class to declare @api notations line. """
+
     def __init__(self, name, *parts, **kw):
+        """
+        :type  name: str
+        :param name: Param name
+        :type  parts: list
+        :param parts: Line arguments
+        """
         self.name = name
         self.parts = parts
         self.lines = kw.get("lines", [])
 
     def __str__(self):
+        """
+        :rtype: string
+        :returns: Returns notation line surrounded by new lines.
+        """
         lines = ""
         if self.lines:
             lines = "\n"
@@ -215,6 +227,7 @@ def get_output_js(apidoc, url, rh_class):
             }
             doc['output_example'] = get_output_example_doc(output_example)
 
+        # Inherits InternalServerError declarations from errors.py file
         doc['apiUse'] = "InternalServerError"
 
         parts = []
