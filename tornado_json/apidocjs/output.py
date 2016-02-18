@@ -40,11 +40,17 @@ def format_type(schema, template="%s"):
     :returns: the formated string
     """
     stype = schema.get('type')
+    if isinstance(stype, list):
+        for i in stype:
+            if i != 'null':
+                stype = i
+                break
+
     enum = schema.get('enum', '')
     if enum:
         enum = "=%s" % dumps(enum)[1:-1].replace('", ', '",')
 
-    if stype == 'array':
+    if stype == 'array' and 'items' in schema:
         return format_type(schema['items'], template='%s[]')
 
     elif stype == 'string':
@@ -247,6 +253,64 @@ def get_output_js(apidoc, url, rh_class):
     return src
 
 
+def generate_py_def(func_name, docstring):
+    """Return dummy python source containing one function with docstring.
+
+    :type  func_name: str
+    :param func_name: function name
+    :type  docstring: str
+    :param docstring: docstring text (not indented)
+    :rtype: str
+    :returns: the python source code
+    """
+    docstring = docstring.replace("\n", "\n    ")
+    # doc = """    \"\"\"%s
+    # \"\"\"""" % doc
+    src = '''def %s():
+    """
+    %s
+    """
+    pass
+''' % (func_name, docstring)
+    return src
+
+
+def generate_errors_file(output_path):
+    """Write file declaring @apiError notations.
+
+    :type  output_path: str
+    :param output_path: Destination path
+    """
+    src = []
+
+    src.append(generate_py_def("schema_validation_error", """
+@apiDefine SchemaValidationError
+@apiError SchemaValidationError One schema field did not validate
+@apiErrorExample {json} SchemaValidationError-Response:
+    HTTP/1.1 400 Bad Request
+    {
+      "data": "TRACEBACK FROM SERVER",
+      "status": "fail"
+    }
+"""))
+
+    src.append(generate_py_def("internal_server_error", """
+@apiDefine InternalServerError
+@apiError (Error 5xx) InternalServerError Return data for any internal
+    server error
+@apiErrorExample {json} InternalServerError-Response:
+    HTTP/1.1 500 Internal Server Error
+    {
+      "status": "error",
+      "code": 500,
+      "message": "Internal Server Error"
+    }
+"""))
+
+    src = "\n".join(src)
+    return src
+
+
 def generate_apidoc_skeleton(routes,
                              content_output_path="apidocjs_input",
                              doc_output_path="doc", **kw):
@@ -261,34 +325,7 @@ def generate_apidoc_skeleton(routes,
     if not exists(output_path):
         makedirs(output_path)
 
-    open(join(output_path, 'errors.py'), 'w').write("""def schema_validation_error():
-    \"\"\"
-    @apiDefine SchemaValidationError
-    @apiError SchemaValidationError One schema field did not validate
-    @apiErrorExample {json} SchemaValidationError-Response:
-        HTTP/1.1 400 Bad Request
-        {
-          "data": "TRACEBACK FROM SERVER",
-          "status": "fail"
-        }
-    \"\"\"
-    pass
-
-def internal_server_error():
-    \"\"\"
-    @apiDefine InternalServerError
-    @apiError (Error 5xx) InternalServerError Return data for any internal
-        server error
-    @apiErrorExample {json} InternalServerError-Response:
-        HTTP/1.1 500 Internal Server Error
-        {
-          "status": "error",
-          "code": 500,
-          "message": "Internal Server Error"
-        }
-    \"\"\"
-    pass
-""")
+    open(join(output_path, 'errors.py'), 'w').write(generate_errors_file())
 
     dump(apidoc,
          open(join(output_path, 'apidoc.json'), 'w'), indent=4)

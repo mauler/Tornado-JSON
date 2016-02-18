@@ -8,11 +8,27 @@ import unittest
 sys.path.append(".")
 from tornado_json.apidocjs.output import format_field_name
 from tornado_json.apidocjs.output import format_type
+from tornado_json.apidocjs.output import generate_py_def
 # from tornado_json.apidocjs.output import get_output_example_doc
 # from tornado_json.apidocjs.output import get_output_js
 # from tornado_json.apidocjs.output import get_output_schema_doc
 # from tornado_json.apidocjs.output import generate_apidoc_skeleton
 # from tornado_json.routes import get_routes
+
+
+class TestGeneratePySource(unittest.TestCase):
+
+    def test_generate_py_def(self):
+        self.assertEqual(
+            generate_py_def("post", """
+Description of My API method
+
+@apiGroup People
+"""),
+            'def post():\n    """\n    \n    '
+            'Description of My API method\n    \n    '
+            '@apiGroup People\n    \n    """\n    '
+            'pass\n')
 
 
 class TestFormatFieldName(unittest.TestCase):
