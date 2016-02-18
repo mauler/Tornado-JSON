@@ -150,10 +150,10 @@ def get_input_schema_doc(input_schema):
 
 def get_output_schema_doc(output_schema, param_name="apiSuccess", preffix=[]):
     if not isinstance(output_schema, dict):
-        return ""
+        return []
 
     if output_schema.get("type") != 'object':
-        return ""
+        return []
 
     required = output_schema.get('required', [])
     parts = []
@@ -236,11 +236,12 @@ def get_output_js(apidoc, url, rh_class):
                 p = v
             elif isinstance(v, str):
                 p = P(k, v)
-            else:
+            elif isinstance(v, list):
                 if any([isinstance(i, P) for i in v]):
-                    p = "".join([str(i) for i in v])
-                else:
-                    p = P(k, *v)
+                    lines = [str(i) for i in v]
+                    p = "".join(lines)
+            else:
+                p = P(k, *v)
 
             parts.append(str(p))
 
