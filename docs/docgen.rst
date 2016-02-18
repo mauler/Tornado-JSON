@@ -85,7 +85,7 @@ Use the **apidocjs** parameter on
                               apidocjs={
                                   name: "My Project",
                                   title: "My Projecto Title",
-                                  # Default initial version,
+                                  # Default initial version
                                   version: '0.0.1',
                                   # Current Version API Endpoint
                                   url: "https://api.example.com/v1"})
@@ -99,3 +99,18 @@ More information about thoses pameters you can find at
 
 Caveats
 =======
+
+list of **types**
+^^^^^^^^^^^^^^^^^
+
+Looks like *Draft4Validator* (jsonschema's default) allow multiple values on
+"type" definition, as first solution ignore the "null" type and get
+the first type to be used on @apiParam/@apiSuccess declaration.
+
+The code below will be threated on the output doc as **string** type.
+
+.. code-block:: javascript
+
+    {
+        type: ['null', 'string', 'number']
+    }
