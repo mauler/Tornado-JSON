@@ -84,9 +84,9 @@ Use the **apidocjs** parameter on
     application = Application(routes=routes,
                               apidocjs={
                                   name: "My Project",
-                                  title: "My Projecto Title"
+                                  title: "My Projecto Title",
                                   # Default initial version,
-                                  version: '0.0.1'
+                                  version: '0.0.1',
                                   # Current Version API Endpoint
                                   url: "https://api.example.com/v1"})
 
