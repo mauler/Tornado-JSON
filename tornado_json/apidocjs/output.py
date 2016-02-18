@@ -288,11 +288,8 @@ def generate_py_def(func_name, docstring):
     return src
 
 
-def generate_errors_file(output_path):
+def generate_errors_file():
     """Write file declaring @apiError notations.
-
-    :type  output_path: str
-    :param output_path: Destination path
     """
     src = []
 
