@@ -39,6 +39,38 @@ def post():
 
 class TestFormatFieldName(unittest.TestCase):
 
+    def test_format_field_name_nested(self):
+        self.assertEqual(
+            format_field_name(
+                {
+                    'type': 'boolean',
+                },
+                'published',
+                'news.published',
+                required=['published']),
+            'news.published')
+
+        self.assertEqual(
+            format_field_name(
+                {
+                    'type': 'boolean',
+                },
+                'published',
+                'news.published',
+                required=[]),
+            '[news.published]')
+
+        self.assertEqual(
+            format_field_name(
+                {
+                    'default': True,
+                    'type': 'boolean',
+                },
+                'published',
+                'news.published',
+                required=[]),
+            '[news.published=true]')
+
     def test_format_field_name(self):
         self.assertEqual(
             format_field_name(
@@ -46,7 +78,7 @@ class TestFormatFieldName(unittest.TestCase):
                     'type': 'boolean',
                 },
                 'published',
-                ['published']),
+                required=['published']),
             'published')
 
         self.assertEqual(
@@ -55,7 +87,7 @@ class TestFormatFieldName(unittest.TestCase):
                     'type': 'boolean',
                 },
                 'published',
-                []),
+                required=[]),
             '[published]')
 
         self.assertEqual(
@@ -65,7 +97,7 @@ class TestFormatFieldName(unittest.TestCase):
                     'type': 'boolean',
                 },
                 'published',
-                []),
+                required=[]),
             '[published=true]')
 
 
@@ -244,6 +276,7 @@ class TestGetOutputDocstring(unittest.TestCase):
             "")
 
     def test_get_get_output_schema_doc_dict(self):
+
         output = self.output_as_str(get_output_schema_doc({
             'title': "Person details",
             'type': 'object',
@@ -273,6 +306,102 @@ class TestGetOutputDocstring(unittest.TestCase):
 @apiSuccess {Integer} [age]
 
 @apiSuccess {String} [name]""")
+
+    def test_get_get_output_schema_doc_array_object(self):
+
+        output = self.output_as_str(get_output_schema_doc({
+            "type": "object",
+            "properties": {
+                "connections": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "airport": {"type": "string"},
+                            "flight": {"type": "string"},
+                            "arrive_time": {"type": "string"},
+                        },
+                        "required": ["flight", "arrive_time"],
+                    }
+                }
+            }
+        }))
+
+        self.assertEqual(
+            output,
+            """@apiSuccess {Object[]} [connections]
+
+@apiSuccess {String} [connections.airport]
+
+@apiSuccess {String} connections.arrive_time
+
+@apiSuccess {String} connections.flight""")
+
+#     def test_get_get_output_schema_doc_array_array_object(self):
+
+#         output = self.output_as_str(get_output_schema_doc({
+#             "type": "object",
+#             "properties": {
+#                 "connections": {
+#                     "type": "array",
+#                     "items": {
+#                         "type": "array",
+#                         "items": {
+#                             "type": "object",
+#                             "properties": {
+#                                 "airport": {"type": "string"},
+#                                 "flight": {"type": "string"},
+#                                 "arrive_time": {"type": "string"},
+#                             },
+#                             "required": ["airport", "flight", "arrive_time"],
+#                         }
+#                     }
+#                 }
+#             }
+#         }))
+
+#         self.assertEqual(
+#             output,
+#             """@apiSuccess {Object[][]} connections
+
+# @apiSuccess {String} connections.airport
+
+# @apiSuccess {String} connections.flight
+
+# @apiSuccess {String} connections.arrive_time""")
+
+#     def test_get_get_output_schema_doc_array_array_object(self):
+
+#         output = self.output_as_str(get_output_schema_doc({
+#             "type": "object",
+#             "properties": {
+#                 "connections": {
+#                     "type": "array",
+#                     "items": {
+#                         "type": "array",
+#                         "items": {
+#                             "type": "object",
+#                             "properties": {
+#                                 "airport": {"type": "string"},
+#                                 "flight": {"type": "string"},
+#                                 "arrive_time": {"type": "string"},
+#                             },
+#                             "required": ["airport", "flight", "arrive_time"],
+#                         }
+#                     }
+#                 }
+#             }
+#         }))
+
+#         self.assertEqual(
+#             output,
+#             """@apiSuccess {Object[][]} connections
+
+# @apiSuccess {String} connections.airport
+
+# @apiSuccess {String} connections.flight
+
+# @apiSuccess {String} connections.arrive_time""")
 
     def test_get_output_example_doc_string(self):
         self.assertEqual(

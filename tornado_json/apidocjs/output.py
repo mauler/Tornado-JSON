@@ -14,20 +14,25 @@ from tornado_json.utils import is_method
 from .utils import slugify
 
 
-def format_field_name(schema, field_name, required=[]):
+def format_field_name(schema, original_key, field_name=None, required=[]):
     """Return string declaration for field name.
 
     :type  schema: dict
     :param schema: the schema
-    :type  field_name: field_name
+    :type  original_key: str
+    :param original_key: original key in schema
+    :type  field_name: str
     :param field_name: the field name key
     :type  required: list
     :param required: required fields list
     :rtype: str
     :returns: the formated field name
     """
+    if not field_name:
+        field_name = original_key
+
     has_default = 'default' in schema
-    not_required = field_name not in required
+    not_required = original_key not in required
     if has_default and not_required:
         default = dumps(schema['default'],
                         separators=(',', ':'),
@@ -165,9 +170,9 @@ def get_output_schema_doc(output_schema, param_name="apiSuccess", preffix=[]):
     if ostype not in ('object', 'array'):
         return []
 
-    required = output_schema.get('required', [])
     parts = []
 
+    required = output_schema.get('required', [])
     fields = {}
     if ostype == 'object':
         fields = output_schema.get('properties', [])
@@ -178,6 +183,7 @@ def get_output_schema_doc(output_schema, param_name="apiSuccess", preffix=[]):
         fields = output_schema.get('items', {})
         if fields.get('type') == 'object':
             fields = fields.get('properties')
+            required = fields.get('required', [])
 
     for k, schema in sorted(fields.items()):
         stype = schema.get('type')
@@ -192,7 +198,7 @@ def get_output_schema_doc(output_schema, param_name="apiSuccess", preffix=[]):
         p = Notation(
             param_name,
             "{%s}" % format_type(schema),
-            format_field_name(schema, key, required),
+            format_field_name(schema, k, key, required),
             description or '')
 
         parts.append(p)
