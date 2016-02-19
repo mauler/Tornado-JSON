@@ -88,7 +88,6 @@ def format_type(schema, template="%s"):
         elif maximum:
             return "%s{<=%d}%s" % (template % stype.capitalize(), maximum,
                                    enum)
-
     return "%s%s" % (template % stype.capitalize(), enum)
 
 
@@ -102,7 +101,7 @@ def get_rh_methods(rh):
             yield (k, v)
 
 
-class P(object):
+class Notation(object):
     """ Helper class to declare @api notations line. """
 
     def __init__(self, name, *parts, **kw):
@@ -140,7 +139,7 @@ def get_input_example_doc(input_example,
                           api_param="apiParamExample",
                           api_param_title="Request-Example"):
     src = dumps(input_example, indent=4, sort_keys=True)
-    doc = P(api_param, "{json}", "%s:" % api_param_title, lines=[src])
+    doc = Notation(api_param, "{json}", "%s:" % api_param_title, lines=[src])
     return doc
 
 
@@ -148,9 +147,9 @@ def get_output_example_doc(output_example,
                            api_param="apiSuccessExample",
                            api_param_title="Success-Response"):
     src = dumps(output_example, indent=4, sort_keys=True)
-    doc = P(api_param, "{json}", "%s:" % api_param_title,
-            lines=["HTTP/1.1 200 OK",
-                   src])
+    doc = Notation(api_param, "{json}", "%s:" % api_param_title,
+                   lines=["HTTP/1.1 200 OK",
+                          src])
     return doc
 
 
@@ -162,35 +161,52 @@ def get_output_schema_doc(output_schema, param_name="apiSuccess", preffix=[]):
     if not isinstance(output_schema, dict):
         return []
 
-    if output_schema.get("type") != 'object':
+    ostype = output_schema.get("type")
+    if ostype not in ('object', 'array'):
         return []
 
     required = output_schema.get('required', [])
     parts = []
-    for k, schema in sorted(output_schema.get('properties', {}).items()):
-        vtype = schema.get('type')
+
+    fields = {}
+    if ostype == 'object':
+        fields = output_schema.get('properties', [])
+        if fields.get('type') == 'array':
+            fields = fields.get('items')
+
+    elif ostype == 'array':
+        fields = output_schema.get('items', {})
+        if fields.get('type') == 'object':
+            fields = fields.get('properties')
+
+    for k, schema in sorted(fields.items()):
+        stype = schema.get('type')
         description = schema.get("description")
-        if vtype == 'object' and description is None:
+        if stype == 'object' and description is None:
             description = schema.get("title", "")
 
         key = k
         if preffix:
             key = ".".join(preffix + [k])
 
-        p = P(param_name,
-              "{%s}" % format_type(schema),
-              format_field_name(schema, key, required),
-              description or '')
+        p = Notation(
+            param_name,
+            "{%s}" % format_type(schema),
+            format_field_name(schema, key, required),
+            description or '')
 
         parts.append(p)
 
-        if vtype == 'object':
+        if stype == 'object' and 'properties' in schema:
             parts += get_output_schema_doc(schema,
                                            param_name=param_name,
                                            preffix=preffix + [k])
 
-        elif vtype == 'array' and 'items' in schema:
-            parts += get_output_schema_doc(schema['items'],
+        elif stype == 'array' and 'items' in schema:
+            if schema['items'].get('type') == 'object':
+                schema = schema['items']
+
+            parts += get_output_schema_doc(schema,
                                            param_name=param_name,
                                            preffix=preffix + [k])
 
@@ -211,7 +227,8 @@ def get_output_js(apidoc, url, rh_class):
 
         if getattr(method, 'input_schema', None):
             doc['input_schema'] = get_input_schema_doc(method.input_schema)
-            doc['input_schema_apiuse'] = P("apiUse", "SchemaValidationError")
+            doc['input_schema_apiuse'] = Notation("apiUse",
+                                                  "SchemaValidationError")
 
         if getattr(method, 'input_example', None):
             doc['input_example'] = get_input_example_doc(method.input_example)
@@ -242,18 +259,18 @@ def get_output_js(apidoc, url, rh_class):
 
         parts = []
         for k, v in doc.items():
-            if isinstance(v, P):
+            if isinstance(v, Notation):
                 p = v
             elif isinstance(v, str):
-                p = P(k, v)
+                p = Notation(k, v)
             elif isinstance(v, list):
-                if any([isinstance(i, P) for i in v]):
+                if any([isinstance(i, Notation) for i in v]):
                     lines = [str(i) for i in v]
                     p = "".join(lines)
                 else:
                     p = ''
             else:
-                p = P(k, *v)
+                p = Notation(k, *v)
 
             parts.append(str(p))
 
@@ -265,15 +282,9 @@ def get_output_js(apidoc, url, rh_class):
 
         parts += extra
 
-        doc = "\n".join(parts).replace("\n", "\n    ")
-
-        doc = """    \"\"\"%s
-    \"\"\"""" % doc
-        js = """def %s():
-%s
-    pass
-""" % (method_type, doc)
-        src.append(js)
+        doc = "\n".join(parts)
+        pysrc = generate_py_def(method_type, doc)
+        src.append(pysrc)
 
     src = "\n".join(src)
     return src
@@ -290,14 +301,18 @@ def generate_py_def(func_name, docstring):
     :returns: the python source code
     """
     docstring = docstring.replace("\n", "\n    ")
-    # doc = """    \"\"\"%s
-    # \"\"\"""" % doc
-    src = '''def %s():
+
+    src = '''
+def %s():
     """
     %s
     """
     pass
 ''' % (func_name, docstring)
+
+    lines = [line.rstrip() for line in src.split("\n")]
+    src = '\n'.join(lines)
+
     return src
 
 

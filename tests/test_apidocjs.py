@@ -6,12 +6,12 @@ import unittest
 # import helloworld
 
 sys.path.append(".")
+from tornado_json.apidocjs.output import Notation
 from tornado_json.apidocjs.output import format_field_name
 from tornado_json.apidocjs.output import format_type
 from tornado_json.apidocjs.output import generate_py_def
-# from tornado_json.apidocjs.output import get_output_example_doc
-# from tornado_json.apidocjs.output import get_output_js
-# from tornado_json.apidocjs.output import get_output_schema_doc
+from tornado_json.apidocjs.output import get_output_example_doc
+from tornado_json.apidocjs.output import get_output_schema_doc
 # from tornado_json.apidocjs.output import generate_apidoc_skeleton
 # from tornado_json.routes import get_routes
 
@@ -24,11 +24,17 @@ class TestGeneratePySource(unittest.TestCase):
 Description of My API method
 
 @apiGroup People
-"""),
-            'def post():\n    """\n    \n    '
-            'Description of My API method\n    \n    '
-            '@apiGroup People\n    \n    """\n    '
-            'pass\n')
+"""), '''
+def post():
+    """
+
+    Description of My API method
+
+    @apiGroup People
+
+    """
+    pass
+''')
 
 
 class TestFormatFieldName(unittest.TestCase):
@@ -217,80 +223,82 @@ class TestFormatType(unittest.TestCase):
             }),
             'Number[]{5~10}')
 
-    # def test_generate_apidoc_skeleton(self):
-    #     routes = get_routes(helloworld)
-    #     self.assertEqual(generate_apidoc_skeleton({
-    #         "name": "example",
-    #         "version": "1.2.3",
-    #         "description": "apiDoc basic example",
-    #         "title": "Custom apiDoc browser title",
-    #         # "url": "https://api.github.com/v1"
-    #     }, routes), True)
 
-    # def test_js_output(self):
-    #     self.assertEqual(
-    #         get_output_js(
-    #             {'version': '0.0.1'},
-    #             '/postit/',
-    #             PostIt),
-    #         """""")
+class TestGetOutputDocstring(unittest.TestCase):
 
-#     def test_get_get_output_schema_doc_string(self):
-#         self.assertEqual(
-#             str(get_output_schema_doc("Foobar")),
-#             "")
+    def output_as_str(self, output):
+        if isinstance(output, list):
+            output = [str(i) for i in output]
+            output = "".join(output)
 
-#     def test_get_get_output_schema_doc_dict(self):
-#         self.assertEqual(
-#             str(get_output_schema_doc({
-#                 'title': "Person details",
-#                 'type': 'object',
-#                 'properties': {
-#                     'name': {
-#                         'type': 'string',
-#                     },
-#                     'age': {
-#                         'type': 'integer',
-#                     },
-#                     'address': {
-#                         'title': 'Person address',
-#                         'type': 'object',
-#                         'properties': {
-#                             'country': {
-#                                 'type': 'string',
-#                             },
-#                         },
-#                     },
-#                 }})),
-#             """@apiSuccess {Object} address Person address
-# @apiSuccess {Integer} age None
-# @apiSuccess {String} name None""")
+        elif isinstance(output, Notation):
+            output = str(output)
 
-#     def test_get_output_example_doc_string(self):
-#         self.assertEqual(
-#             str(get_output_example_doc("Foobar")),
-#             """@apiSuccessExample {json} Success-Response:
-#         HTTP/1.1 200 OK
-#         \"Foobar\"""")
+        lines = output.split("\n")
+        output = "\n".join([line.rstrip() for line in lines])
+        return output.strip()
 
-#     def test_get_output_example_doc_dict(self):
-#         self.assertEqual(
-#             str(get_output_example_doc({
-#                 'name': "Paulo",
-#                 'age': 29,
-#                 'address': {
-#                     'country': "Brazil",
-#                 },
-#             })),
-#             """@apiSuccessExample {json} Success-Response:
-#         HTTP/1.1 200 OK
-#         {
-#     "address": {
-#         "country": "Brazil"
-#     },
-#     "age": 29,
-#     "name": "Paulo"
-# }""")
+    def test_get_get_output_schema_doc_string(self):
+        self.assertEqual(
+            self.output_as_str(get_output_schema_doc("Foobar")),
+            "")
+
+    def test_get_get_output_schema_doc_dict(self):
+        output = self.output_as_str(get_output_schema_doc({
+            'title': "Person details",
+            'type': 'object',
+            'properties': {
+                'name': {
+                    'type': 'string',
+                },
+                'age': {
+                    'type': 'integer',
+                },
+                'address': {
+                    'title': 'Person address',
+                    'type': 'object',
+                    'properties': {
+                        'country': {
+                            'type': 'string',
+                        },
+                    },
+                },
+            }}))
+        self.assertEqual(
+            output,
+            """@apiSuccess {Object} [address] Person address
+
+@apiSuccess {String} [address.country]
+
+@apiSuccess {Integer} [age]
+
+@apiSuccess {String} [name]""")
+
+    def test_get_output_example_doc_string(self):
+        self.assertEqual(
+            self.output_as_str(get_output_example_doc("Foobar")),
+            """@apiSuccessExample {json} Success-Response:
+    HTTP/1.1 200 OK
+    \"Foobar\"""")
+
+    def test_get_output_example_doc(self):
+        self.assertEqual(
+            self.output_as_str(get_output_example_doc({
+                'name': "Paulo",
+                'age': 29,
+                'address': {
+                    'country': "Brazil",
+                },
+            })),
+            """@apiSuccessExample {json} Success-Response:
+    HTTP/1.1 200 OK
+    {
+        "address": {
+            "country": "Brazil"
+        },
+        "age": 29,
+        "name": "Paulo"
+    }""")
 
 
 if __name__ == '__main__':
