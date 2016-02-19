@@ -1,9 +1,17 @@
+
+try:
+    from collections import OrderedDict
+except ImportError:
+    from ordereddict import OrderedDict
+
 from json import dump, dumps
 from os import makedirs, system
 from os.path import exists, join
 
 from tornado_json.constants import HTTP_METHODS
 from tornado_json.utils import is_method
+
+from .utils import slugify
 
 
 def format_field_name(schema, field_name, required=[]):
@@ -21,7 +29,9 @@ def format_field_name(schema, field_name, required=[]):
     has_default = 'default' in schema
     not_required = field_name not in required
     if has_default and not_required:
-        default = dumps(schema['default'], separators=(',', ':'))
+        default = dumps(schema['default'],
+                        separators=(',', ':'),
+                        sort_keys=True)
         return "[%s=%s]" % (field_name, default)
     elif not_required:
         return "[%s]" % field_name
@@ -84,7 +94,7 @@ def format_type(schema, template="%s"):
 
 def get_rh_methods(rh):
     """Return all RequestHandler valid HTTP methods."""
-    for k, v in vars(rh).items():
+    for k, v in sorted(vars(rh).items()):
         if all([
             k in HTTP_METHODS,
             is_method(v),
@@ -190,7 +200,7 @@ def get_output_schema_doc(output_schema, param_name="apiSuccess", preffix=[]):
 def get_output_js(apidoc, url, rh_class):
     src = []
     for method_type, method in get_rh_methods(rh_class):
-        doc = {}
+        doc = OrderedDict()
         docparts = get_method_api_description(method) or ['']
         doc['api'] = ("{%s}" % method_type,
                       url,
@@ -240,6 +250,8 @@ def get_output_js(apidoc, url, rh_class):
                 if any([isinstance(i, P) for i in v]):
                     lines = [str(i) for i in v]
                     p = "".join(lines)
+                else:
+                    p = ''
             else:
                 p = P(k, *v)
 
@@ -339,10 +351,12 @@ def generate_apidoc_skeleton(routes,
     open(join(output_path, 'errors.py'), 'w').write(generate_errors_file())
 
     dump(apidoc,
-         open(join(content_output_path, 'apidoc.json'), 'w'), indent=4)
+         open(join(content_output_path, 'apidoc.json'), 'w'),
+         indent=4,
+         sort_keys=True)
 
     for url, rh in routes:
-        part = url[1:].replace("/", "_").replace("_?", "")
+        part = slugify(url)
         fname = "%s_%s.py" % (part, rh.__name__)
         fname = fname.lower()
         fpath = join(output_path, fname)
