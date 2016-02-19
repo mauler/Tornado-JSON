@@ -339,7 +339,7 @@ def generate_apidoc_skeleton(routes,
     open(join(output_path, 'errors.py'), 'w').write(generate_errors_file())
 
     dump(apidoc,
-         open(join(output_path, 'apidoc.json'), 'w'), indent=4)
+         open(join(content_output_path, 'apidoc.json'), 'w'), indent=4)
 
     for url, rh in routes:
         part = url[1:].replace("/", "_").replace("_?", "")
