@@ -286,11 +286,11 @@ def get_output_js(apidoc, url, rh_class):
                 'properties': {
                     'data': method.output_schema,
                     'status': {
-                        'description': "Returns 'success', 'fail' or 'error'.",
                         'type': 'string',
-                        # 'enum': ['fail', 'success']
-                    }
-                }
+                        'enum': ['fail', 'success', 'error'],
+                    },
+                },
+                'required': ['data', 'status']
             }
             doc['output_schema'] = get_output_schema_doc(output_schema)
 
