@@ -10,6 +10,9 @@ from tornado_json.apidocjs.output import Notation
 from tornado_json.apidocjs.output import format_field_name
 from tornado_json.apidocjs.output import format_type
 from tornado_json.apidocjs.output import generate_py_def
+from tornado_json.apidocjs.output import get_array_suffix
+from tornado_json.apidocjs.output import get_schema_fields
+from tornado_json.apidocjs.output import get_schema_nested
 from tornado_json.apidocjs.output import get_output_example_doc
 from tornado_json.apidocjs.output import get_output_schema_doc
 # from tornado_json.apidocjs.output import generate_apidoc_skeleton
@@ -99,6 +102,43 @@ class TestFormatFieldName(unittest.TestCase):
                 'published',
                 required=[]),
             '[published=true]')
+
+
+class TestGetArraySuffix(unittest.TestCase):
+
+    def test_get_array_suffix(self):
+        self.assertEqual(
+            get_array_suffix({
+                'type': 'string',
+            }),
+            '')
+
+        self.assertEqual(
+            get_array_suffix({
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "airport": {"type": "string"},
+                        "flight": {"type": "string"},
+                        "arrive_time": {"type": "string"},
+                    },
+                    "required": ["flight", "arrive_time"],
+                }
+            }),
+            '[]')
+
+        self.assertEqual(
+            get_array_suffix({
+                'type': 'array',
+                'items': {
+                    'type': 'array',
+                    'items': {
+                        'type': 'string',
+                    },
+                }
+            }),
+            '[][]')
 
 
 class TestFormatType(unittest.TestCase):
@@ -270,12 +310,12 @@ class TestGetOutputDocstring(unittest.TestCase):
         output = "\n".join([line.rstrip() for line in lines])
         return output.strip()
 
-    def test_get_get_output_schema_doc_string(self):
+    def test_get_output_schema_doc_string(self):
         self.assertEqual(
             self.output_as_str(get_output_schema_doc("Foobar")),
             "")
 
-    def test_get_get_output_schema_doc_dict(self):
+    def test_get_output_schema_doc_dict(self):
 
         output = self.output_as_str(get_output_schema_doc({
             'title': "Person details",
@@ -307,7 +347,7 @@ class TestGetOutputDocstring(unittest.TestCase):
 
 @apiSuccess {String} [name]""")
 
-    def test_get_get_output_schema_doc_array_object(self):
+    def test_get_output_schema_doc_array_object(self):
 
         output = self.output_as_str(get_output_schema_doc({
             "type": "object",
@@ -324,12 +364,13 @@ class TestGetOutputDocstring(unittest.TestCase):
                         "required": ["flight", "arrive_time"],
                     }
                 }
-            }
+            },
+            'required': ['connections']
         }))
 
         self.assertEqual(
             output,
-            """@apiSuccess {Object[]} [connections]
+            """@apiSuccess {Object[]} connections
 
 @apiSuccess {String} [connections.airport]
 
@@ -337,71 +378,63 @@ class TestGetOutputDocstring(unittest.TestCase):
 
 @apiSuccess {String} connections.flight""")
 
-#     def test_get_get_output_schema_doc_array_array_object(self):
+    def test_get_output_schema_doc_array_array_object(self):
+        output = {
+            "type": "object",
+            "properties": {
+                "connections": {
+                    "type": "array",
+                    "items": {
+                        'type': "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "airport": {"type": "string"},
+                                "flight": {"type": "string"},
+                                "arrive_time": {"type": "string"},
+                            },
+                            "required": ["flight", "arrive_time"],
+                        },
+                    }
+                }
+            }
+        }
 
-#         output = self.output_as_str(get_output_schema_doc({
-#             "type": "object",
-#             "properties": {
-#                 "connections": {
-#                     "type": "array",
-#                     "items": {
-#                         "type": "array",
-#                         "items": {
-#                             "type": "object",
-#                             "properties": {
-#                                 "airport": {"type": "string"},
-#                                 "flight": {"type": "string"},
-#                                 "arrive_time": {"type": "string"},
-#                             },
-#                             "required": ["airport", "flight", "arrive_time"],
-#                         }
-#                     }
-#                 }
-#             }
-#         }))
+        self.assertEqual(
+            get_array_suffix(output),
+            '',
+        )
 
-#         self.assertEqual(
-#             output,
-#             """@apiSuccess {Object[][]} connections
+        self.assertEqual(
+            output,
+            get_schema_nested(output))
 
-# @apiSuccess {String} connections.airport
+        self.assertEqual(
+            get_array_suffix(output['properties']['connections']),
+            '[][]',
+        )
 
-# @apiSuccess {String} connections.flight
+        self.assertEqual(
+            get_schema_nested(output['properties']['connections']),
+            {
+                "type": "object",
+                "properties": {
+                    "airport": {"type": "string"},
+                    "flight": {"type": "string"},
+                    "arrive_time": {"type": "string"},
+                },
+                "required": ["flight", "arrive_time"],
+            })
 
-# @apiSuccess {String} connections.arrive_time""")
+        self.assertEqual(
+            self.output_as_str(get_output_schema_doc(output)),
+            """@apiSuccess {Object[][]} [connections]
 
-#     def test_get_get_output_schema_doc_array_array_object(self):
+@apiSuccess {String} [connections.airport]
 
-#         output = self.output_as_str(get_output_schema_doc({
-#             "type": "object",
-#             "properties": {
-#                 "connections": {
-#                     "type": "array",
-#                     "items": {
-#                         "type": "array",
-#                         "items": {
-#                             "type": "object",
-#                             "properties": {
-#                                 "airport": {"type": "string"},
-#                                 "flight": {"type": "string"},
-#                                 "arrive_time": {"type": "string"},
-#                             },
-#                             "required": ["airport", "flight", "arrive_time"],
-#                         }
-#                     }
-#                 }
-#             }
-#         }))
+@apiSuccess {String} connections.arrive_time
 
-#         self.assertEqual(
-#             output,
-#             """@apiSuccess {Object[][]} connections
-
-# @apiSuccess {String} connections.airport
-
-# @apiSuccess {String} connections.flight
-
-# @apiSuccess {String} connections.arrive_time""")
+@apiSuccess {String} connections.flight""")
 
     def test_get_output_example_doc_string(self):
         self.assertEqual(
@@ -428,6 +461,46 @@ class TestGetOutputDocstring(unittest.TestCase):
         "age": 29,
         "name": "Paulo"
     }""")
+
+    def test_get_schema_fields(self):
+        self.assertEqual(
+            get_schema_fields({
+                'title': "Person details",
+                'type': 'object',
+                'properties': {
+                    'name': {
+                        'type': 'string',
+                    },
+                    'age': {
+                        'type': 'integer',
+                    },
+                    'address': {
+                        'title': 'Person address',
+                        'type': 'object',
+                        'properties': {
+                            'country': {
+                                'type': 'string',
+                            },
+                        },
+                    },
+                }}),
+            {
+                'name': {
+                    'type': 'string',
+                },
+                'age': {
+                    'type': 'integer',
+                },
+                'address': {
+                    'title': 'Person address',
+                    'type': 'object',
+                    'properties': {
+                        'country': {
+                            'type': 'string',
+                        },
+                    },
+                },
+            })
 
 
 if __name__ == '__main__':

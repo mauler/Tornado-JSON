@@ -33,6 +33,7 @@ def format_field_name(schema, original_key, field_name=None, required=[]):
 
     has_default = 'default' in schema
     not_required = original_key not in required
+
     if has_default and not_required:
         default = dumps(schema['default'],
                         separators=(',', ':'),
@@ -44,7 +45,7 @@ def format_field_name(schema, original_key, field_name=None, required=[]):
     return field_name
 
 
-def format_type(schema, template="%s"):
+def format_type(schema, template=None):
     """Return schema as formated type declarative type for api.
 
     :type  schema: dict
@@ -65,8 +66,11 @@ def format_type(schema, template="%s"):
     if enum:
         enum = "=%s" % dumps(enum)[1:-1].replace('", ', '",')
 
+    if template is None:
+        template = "%s" + get_array_suffix(schema)
+
     if stype == 'array' and 'items' in schema:
-        return format_type(schema['items'], template='%s[]')
+        return format_type(schema['items'], template)
 
     elif stype == 'string':
         min_length = schema.get("minLength")
@@ -93,7 +97,15 @@ def format_type(schema, template="%s"):
         elif maximum:
             return "%s{<=%d}%s" % (template % stype.capitalize(), maximum,
                                    enum)
-    return "%s%s" % (template % stype.capitalize(), enum)
+    fmt = "%s%s" % (template % stype.capitalize(), enum)
+    return fmt
+
+
+def get_array_suffix(schema):
+    if schema.get('type') == 'array':
+        items = schema.get("items", {})
+        return get_array_suffix(items) + '[]'
+    return ''
 
 
 def get_rh_methods(rh):
@@ -162,7 +174,57 @@ def get_input_schema_doc(input_schema):
     return get_output_schema_doc(input_schema, param_name="apiParam")
 
 
-def get_output_schema_doc(output_schema, param_name="apiSuccess", preffix=[]):
+def get_schema_fields(schema):
+    stype = schema.get("type")
+    if stype == 'array':
+        return schema.get('items', {})
+
+    elif stype == 'object':
+        return schema.get('properties', {})
+
+    return {}
+
+
+def get_schema_nested(schema):
+    stype = schema.get("type")
+    if stype == 'array':
+        items = schema.get('items', {})
+        itype = items.get('type')
+        if itype in ('object', 'array'):
+            return get_schema_nested(items)
+    elif stype == 'object':
+        properties = schema.get('properties', {})
+        ptype = properties.get('type')
+        if ptype in ('object', 'array'):
+            return get_schema_nested(properties)
+
+    return schema
+
+
+def get_schema_notation(k, schema, param_name, preffix, required):
+    stype = schema.get('type')
+    description = schema.get("description")
+    if stype == 'object' and description is None:
+        description = schema.get("title", "")
+
+    key = k
+    if preffix:
+        key = ".".join(preffix + [k])
+
+    p = Notation(
+        param_name,
+        "{%s}" % format_type(schema),
+        format_field_name(schema,
+                          k,
+                          key,
+                          required),
+        description or '')
+
+    return p
+
+
+def get_output_schema_doc(output_schema, param_name="apiSuccess", preffix=[],
+                          array_suffix=''):
     if not isinstance(output_schema, dict):
         return []
 
@@ -172,49 +234,28 @@ def get_output_schema_doc(output_schema, param_name="apiSuccess", preffix=[]):
 
     parts = []
 
-    required = output_schema.get('required', [])
-    fields = {}
-    if ostype == 'object':
-        fields = output_schema.get('properties', [])
-        if fields.get('type') == 'array':
-            fields = fields.get('items')
+    if ostype in ('object', 'array'):
+        schema = get_schema_nested(output_schema)
+        required = schema.get("required", [])
+        fields = get_schema_fields(schema)
+        for k, schema in sorted(fields.items()):
+            stype = schema.get('type')
 
-    elif ostype == 'array':
-        fields = output_schema.get('items', {})
-        if fields.get('type') == 'object':
-            fields = fields.get('properties')
-            required = fields.get('required', [])
+            parts.append(get_schema_notation(k, schema, param_name, preffix,
+                                             required))
 
-    for k, schema in sorted(fields.items()):
-        stype = schema.get('type')
-        description = schema.get("description")
-        if stype == 'object' and description is None:
-            description = schema.get("title", "")
+            if stype == 'object' and 'properties' in schema:
+                parts += get_output_schema_doc(schema,
+                                               param_name=param_name,
+                                               preffix=preffix + [k])
 
-        key = k
-        if preffix:
-            key = ".".join(preffix + [k])
+            elif stype == 'array' and 'items' in schema:
+                if schema['items'].get('type') == 'object':
+                    schema = schema['items']
 
-        p = Notation(
-            param_name,
-            "{%s}" % format_type(schema),
-            format_field_name(schema, k, key, required),
-            description or '')
-
-        parts.append(p)
-
-        if stype == 'object' and 'properties' in schema:
-            parts += get_output_schema_doc(schema,
-                                           param_name=param_name,
-                                           preffix=preffix + [k])
-
-        elif stype == 'array' and 'items' in schema:
-            if schema['items'].get('type') == 'object':
-                schema = schema['items']
-
-            parts += get_output_schema_doc(schema,
-                                           param_name=param_name,
-                                           preffix=preffix + [k])
+                parts += get_output_schema_doc(schema,
+                                               param_name=param_name,
+                                               preffix=preffix + [k])
 
     return parts
 
