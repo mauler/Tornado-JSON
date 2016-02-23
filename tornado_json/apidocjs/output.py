@@ -102,6 +102,15 @@ def format_type(schema, template=None):
 
 
 def get_array_suffix(schema):
+    """Return the array suffix for format_type.
+
+    It "counts" how many "arrays" a object would be declared as.
+
+    :type  schema: dict
+    :param schema: the schema
+    :rtype: str
+    :returns: the formated suffix: "", "[]", "[][]"
+    """
     if schema.get('type') == 'array':
         items = schema.get("items", {})
         return get_array_suffix(items) + '[]'
@@ -148,13 +157,31 @@ class Notation(object):
         return s
 
 
-def get_method_api_description(method):
+def get_method_doc_lines(method):
+    """Return method doc lines (If have any doc).
+
+    :type  method: callable
+    :param method: the method to extract doc lines
+    :rtype: list
+    :returns: lines
+    """
     return (getattr(method, "__doc__", "") or "").strip().split("\n")
 
 
 def get_input_example_doc(input_example,
                           api_param="apiParamExample",
                           api_param_title="Request-Example"):
+    """Return input example Notation.
+
+    :type  input_example: dict
+    :param input_example: input example schema
+    :type  api_param: str
+    :param api_param: Notation param name
+    :type  api_param_title: str
+    :param api_param_title: Notation param request title
+    :rtype: Notation
+    :returns: Declared notation
+    """
     src = dumps(input_example, indent=4, sort_keys=True)
     doc = Notation(api_param, "{json}", "%s:" % api_param_title, lines=[src])
     return doc
@@ -163,6 +190,17 @@ def get_input_example_doc(input_example,
 def get_output_example_doc(output_example,
                            api_param="apiSuccessExample",
                            api_param_title="Success-Response"):
+    """Return output example Notation.
+
+    :type  output_example: dict
+    :param output_example: output example schema
+    :type  api_param: str
+    :param api_param: Notation param name
+    :type  api_param_title: str
+    :param api_param_title: Notation param response title
+    :rtype: Notation
+    :returns: Declared notation
+    """
     src = dumps(output_example, indent=4, sort_keys=True)
     doc = Notation(api_param, "{json}", "%s:" % api_param_title,
                    lines=["HTTP/1.1 200 OK",
@@ -170,61 +208,18 @@ def get_output_example_doc(output_example,
     return doc
 
 
-def get_input_schema_doc(input_schema):
-    return get_output_schema_doc(input_schema, param_name="apiParam")
+def get_output_schema_doc(output_schema, param_name="apiSuccess", preffix=[]):
+    """Return output schema Notation.
 
-
-def get_schema_fields(schema):
-    stype = schema.get("type")
-    if stype == 'array':
-        return schema.get('items', {})
-
-    elif stype == 'object':
-        return schema.get('properties', {})
-
-    return {}
-
-
-def get_schema_nested(schema):
-    stype = schema.get("type")
-    if stype == 'array':
-        items = schema.get('items', {})
-        itype = items.get('type')
-        if itype in ('object', 'array'):
-            return get_schema_nested(items)
-    elif stype == 'object':
-        properties = schema.get('properties', {})
-        ptype = properties.get('type')
-        if ptype in ('object', 'array'):
-            return get_schema_nested(properties)
-
-    return schema
-
-
-def get_schema_notation(k, schema, param_name, preffix, required):
-    stype = schema.get('type')
-    description = schema.get("description")
-    if stype == 'object' and description is None:
-        description = schema.get("title", "")
-
-    key = k
-    if preffix:
-        key = ".".join(preffix + [k])
-
-    p = Notation(
-        param_name,
-        "{%s}" % format_type(schema),
-        format_field_name(schema,
-                          k,
-                          key,
-                          required),
-        description or '')
-
-    return p
-
-
-def get_output_schema_doc(output_schema, param_name="apiSuccess", preffix=[],
-                          array_suffix=''):
+    :type  output_schema: dict
+    :param output_schema: output schema
+    :type  param_name: str
+    :param param_name: Notation param name
+    :type  preffix: list
+    :param preffix: previous nested schema keys (for schema nested in objects)
+    :rtype: Notation
+    :returns: Declared notation
+    """
     if not isinstance(output_schema, dict):
         return []
 
@@ -260,11 +255,109 @@ def get_output_schema_doc(output_schema, param_name="apiSuccess", preffix=[],
     return parts
 
 
-def get_output_js(apidoc, url, rh_class):
+def get_input_schema_doc(input_schema):
+    """Return input schema Notation.
+
+    :type  input_schema: dict
+    :param input_schema: output example schema
+    :rtype: Notation
+    :returns: Declared notation
+    """
+    return get_output_schema_doc(input_schema, param_name="apiParam")
+
+
+def get_schema_fields(schema):
+    """Return output schema Notation.
+
+    :type  input_schema: dict
+    :param input_schema: output example schema
+    :rtype: Notation
+    :returns: Declared notation
+    """
+    stype = schema.get("type")
+    if stype == 'array':
+        return schema.get('items', {})
+
+    elif stype == 'object':
+        return schema.get('properties', {})
+
+    return {}
+
+
+def get_schema_nested(schema):
+    """Return the this schema or a nested one (if current is array or object).
+
+    :type  schema: dict
+    :param schema: the schema
+    :rtype: dict
+    :returns: the valid schema
+    """
+    stype = schema.get("type")
+    if stype == 'array':
+        items = schema.get('items', {})
+        itype = items.get('type')
+        if itype in ('object', 'array'):
+            return get_schema_nested(items)
+    elif stype == 'object':
+        properties = schema.get('properties', {})
+        ptype = properties.get('type')
+        if ptype in ('object', 'array'):
+            return get_schema_nested(properties)
+
+    return schema
+
+
+def get_schema_notation(k, schema, param_name, preffix, required):
+    """Return the schema Notation.
+
+    :type  k: str
+    :param k: the key that the schema resides in parent properties/items dict
+    :type  schema: dict
+    :param schema: the schema
+    :type  preffix: list
+    :param preffix: list of previous keys (nested)
+    :type  required: list
+    :param required: list of required keys from parent properties/items  dict
+    :rtype: Notation
+    :returns: the schema Notation
+    """
+    stype = schema.get('type')
+    description = schema.get("description")
+    if stype == 'object' and description is None:
+        description = schema.get("title", "")
+
+    key = k
+    if preffix:
+        key = ".".join(preffix + [k])
+
+    p = Notation(
+        param_name,
+        "{%s}" % format_type(schema),
+        format_field_name(schema,
+                          k,
+                          key,
+                          required),
+        description or '')
+
+    return p
+
+
+def get_output_source(apidoc, url, rh_class):
+    """Return output source for the chosen url and RequestHandler.
+
+    :type  apidoc: dict
+    :param apidoc: apidocjs params
+    :type  url: str
+    :param url: the url
+    :type  rh_class: RequestHandler
+    :param rh_class: tornado's RequestHandler class
+    :rtype: str
+    :returns: the dummy python soruce code
+    """
     src = []
     for method_type, method in get_rh_methods(rh_class):
         doc = OrderedDict()
-        docparts = get_method_api_description(method) or ['']
+        docparts = get_method_doc_lines(method) or ['']
         doc['api'] = ("{%s}" % method_type,
                       url,
                       docparts[0], )
@@ -399,6 +492,15 @@ def generate_errors_file():
 def generate_apidoc_skeleton(routes,
                              content_output_path="apidocjs_input",
                              doc_output_path="doc", **kw):
+    """Generate apidoc skeleton.
+
+    :type  routes: iterable
+    :param routes: tornado's application routes
+    :type  content_output_path: str
+    :param content_output_path: output path for generated dummy python code
+    :type  doc_output_path: str
+    :param doc_output_path: destination directory
+    """
     apidoc = {
         'name': "My project",
         'title': "My Tornado-JSON based project",
@@ -422,7 +524,7 @@ def generate_apidoc_skeleton(routes,
         fname = "%s_%s.py" % (part, rh.__name__)
         fname = fname.lower()
         fpath = join(output_path, fname)
-        src = get_output_js(apidoc, url, rh)
+        src = get_output_source(apidoc, url, rh)
         open(fpath, 'w').write(src)
 
     system("apidoc -i %s -o %s --verbose" % (content_output_path,
