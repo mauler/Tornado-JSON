@@ -26,6 +26,7 @@ class Application(tornado.web.Application):
     def __init__(self, routes, settings, db_conn=None,
                  generate_docs=False, apidocjs=None):
 
+        self.apidocjs = apidocjs
         if apidocjs:
             generate_apidoc_skeleton(routes, **apidocjs)
 

@@ -220,9 +220,6 @@ def get_output_schema_doc(output_schema, param_name="apiSuccess", preffix=[]):
     :rtype: Notation
     :returns: Declared notation
     """
-    if not isinstance(output_schema, dict):
-        return []
-
     ostype = output_schema.get("type")
     if ostype not in ('object', 'array'):
         return []
@@ -527,3 +524,5 @@ def generate_apidoc_skeleton(routes,
 
     system("apidoc -i %s -o %s --verbose --line-ending=LF" %
            (content_output_path, doc_output_path))
+
+    return True

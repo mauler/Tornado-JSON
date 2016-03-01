@@ -1,10 +1,7 @@
 import sys
 import unittest
 
-# sys.path.append("demos/helloworld")
-# # from helloworld.api import PostIt
-# import helloworld
-
+from tornado.testing import AsyncHTTPTestCase
 sys.path.append(".")
 from tornado_json.apidocjs.output import Notation
 from tornado_json.apidocjs.output import format_field_name
@@ -15,8 +12,49 @@ from tornado_json.apidocjs.output import get_schema_fields
 from tornado_json.apidocjs.output import get_schema_nested
 from tornado_json.apidocjs.output import get_output_example_doc
 from tornado_json.apidocjs.output import get_output_schema_doc
-# from tornado_json.apidocjs.output import generate_apidoc_skeleton
-# from tornado_json.routes import get_routes
+from tornado_json.apidocjs.output import generate_apidoc_skeleton
+from tornado_json.requesthandlers import APIHandler
+from tornado_json.routes import get_routes
+from tornado_json import application
+from tornado_json import schema
+sys.path.append("demos/helloworld")
+import helloworld
+
+
+class HiHandler(APIHandler):
+    @schema.validate(
+        output_schema={'type': 'string'},
+        output_example="Hi"
+    )
+    def post(self):
+        """@apiDescription Describe API using apiDescription notation to
+        increase code coverage. """
+        return "Hi"
+
+
+class TestGenerateApidocSkeleton(AsyncHTTPTestCase):
+    def get_app(self):
+        rts = get_routes(helloworld)
+        rts += [
+            ("/api/hi/", HiHandler),
+        ]
+        return application.Application(
+            routes=rts,
+            settings={"debug": True},
+            db_conn=None,
+            apidocjs={
+                "name": "Hi Project API",
+                "version": "1.0.0",
+                "title": "Hi API",
+                "url": "https://api.hi.com/v1"
+            }
+        )
+
+    def test_generate_apidoc_skeleton(self):
+        self.assertTrue(
+            generate_apidoc_skeleton(
+                self._app.named_handlers,
+                **self._app.apidocjs))
 
 
 class TestGeneratePySource(unittest.TestCase):
@@ -159,6 +197,8 @@ class TestFormatType(unittest.TestCase):
     def test_format_type_string(self):
 
         self.assertEqual(format_type({'type': 'string'}), 'String')
+
+        self.assertEqual(format_type({'type': ['string', 'null']}), 'String')
 
         self.assertEqual(
             format_type({
@@ -312,7 +352,10 @@ class TestGetOutputDocstring(unittest.TestCase):
 
     def test_get_output_schema_doc_string(self):
         self.assertEqual(
-            self.output_as_str(get_output_schema_doc("Foobar")),
+            self.output_as_str(get_output_schema_doc({'type': "string"})),
+            "")
+        self.assertEqual(
+            self.output_as_str(get_output_schema_doc({'type': "string"})),
             "")
 
     def test_get_output_schema_doc_dict(self):
@@ -462,29 +505,52 @@ class TestGetOutputDocstring(unittest.TestCase):
         "name": "Paulo"
     }""")
 
+    def test_get_schema_fields_invalid(self):
+        self.assertEqual(
+            get_schema_fields({
+                'type': 'string',
+            }),
+            {})
+
     def test_get_schema_fields(self):
         self.assertEqual(
             get_schema_fields({
-                'title': "Person details",
-                'type': 'object',
-                'properties': {
-                    'name': {
-                        'type': 'string',
-                    },
-                    'age': {
-                        'type': 'integer',
-                    },
-                    'address': {
-                        'title': 'Person address',
-                        'type': 'object',
-                        'properties': {
-                            'country': {
+                'type': 'array',
+                'items': {
+                    'title': "Person details",
+                    'type': 'object',
+                    'properties': {
+                        'cars': {
+                            'type': 'array',
+                            'items': {
                                 'type': 'string',
+                            }
+                        },
+                        'name': {
+                            'type': 'string',
+                        },
+                        'age': {
+                            'type': 'integer',
+                        },
+                        'address': {
+                            'title': 'Person address',
+                            'type': 'object',
+                            'properties': {
+                                'country': {
+                                    'type': 'string',
+                                },
                             },
                         },
-                    },
-                }}),
+                    }
+                }
+            }),
             {
+                'cars': {
+                    'type': 'array',
+                    'items': {
+                        'type': 'string',
+                    }
+                },
                 'name': {
                     'type': 'string',
                 },
