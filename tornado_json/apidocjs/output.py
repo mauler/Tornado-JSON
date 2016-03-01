@@ -235,7 +235,6 @@ def get_output_schema_doc(output_schema, param_name="apiSuccess", preffix=[]):
         fields = get_schema_fields(schema)
         for k, schema in sorted(fields.items()):
             stype = schema.get('type')
-
             parts.append(get_schema_notation(k, schema, param_name, preffix,
                                              required))
 
@@ -245,9 +244,6 @@ def get_output_schema_doc(output_schema, param_name="apiSuccess", preffix=[]):
                                                preffix=preffix + [k])
 
             elif stype == 'array' and 'items' in schema:
-                if schema['items'].get('type') == 'object':
-                    schema = schema['items']
-
                 parts += get_output_schema_doc(schema,
                                                param_name=param_name,
                                                preffix=preffix + [k])
@@ -276,7 +272,9 @@ def get_schema_fields(schema):
     """
     stype = schema.get("type")
     if stype == 'array':
-        return schema.get('items', {})
+        sitems = schema.get("items")
+        if sitems:
+            return get_schema_fields(sitems)
 
     elif stype == 'object':
         return schema.get('properties', {})
@@ -527,5 +525,5 @@ def generate_apidoc_skeleton(routes,
         src = get_output_source(apidoc, url, rh)
         open(fpath, 'w').write(src)
 
-    system("apidoc -i %s -o %s --verbose" % (content_output_path,
-                                             doc_output_path))
+    system("apidoc -i %s -o %s --verbose --line-ending=LF" %
+           (content_output_path, doc_output_path))
