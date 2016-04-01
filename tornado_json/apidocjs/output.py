@@ -1,17 +1,21 @@
-
 try:
     from collections import OrderedDict
 except ImportError:
     from ordereddict import OrderedDict
 
 from json import dump, dumps
+from logging import getLogger
 from os import makedirs, system
 from os.path import exists, join
+from textwrap import indent
 
 from tornado_json.constants import HTTP_METHODS
 from tornado_json.utils import is_method
 
 from .utils import slugify
+
+
+logger = getLogger("apidoc")
 
 
 def format_field_name(schema, original_key, field_name=None, required=[]):
@@ -55,6 +59,7 @@ def format_type(schema, template=None):
     :rtype: str
     :returns: the formated string
     """
+
     stype = schema.get('type')
     if isinstance(stype, list):
         for i in stype:
@@ -157,15 +162,15 @@ class Notation(object):
         return s
 
 
-def get_method_doc_lines(method):
-    """Return method doc lines (If have any doc).
+def get_method_docstring(method):
+    """Return method docstring (If have any doc) left striped.
 
     :type  method: callable
     :param method: the method to extract doc lines
-    :rtype: list
-    :returns: lines
+    :rtype: str
+    :returns: docstring
     """
-    return (getattr(method, "__doc__", "") or "").strip().split("\n")
+    return (getattr(method, "__doc__", "") or "").lstrip()
 
 
 def get_input_example_doc(input_example,
@@ -325,6 +330,14 @@ def get_schema_notation(k, schema, param_name, preffix, required):
     if preffix:
         key = ".".join(preffix + [k])
 
+    logger.debug("Adding notation {0}".format(param_name))
+    logger.debug("Notation schema {0}".format(schema))
+
+    if 'type' not in schema:
+        msg = 'Type not declared on schema {0}'.format(schema)
+        logger.error(msg)
+        raise Exception(msg)
+
     p = Notation(
         param_name,
         "{%s}" % format_type(schema),
@@ -352,13 +365,16 @@ def get_output_source(apidoc, url, rh_class):
     src = []
     for method_type, method in get_rh_methods(rh_class):
         doc = OrderedDict()
-        docparts = get_method_doc_lines(method) or ['']
+        method_docstring = get_method_docstring(method)
+        docparts = method_docstring.split("\n") or ['']
         doc['api'] = ("{%s}" % method_type,
                       url,
                       docparts[0], )
         doc['apiVersion'] = apidoc['version']
         doc['apiName'] = "%s%s" % (method_type.upper(), rh_class.__name__)
-        doc['apiGroup'] = rh_class.__name__
+
+        if "@apiGroup" not in method_docstring:
+            doc['apiGroup'] = rh_class.__name__
 
         if getattr(method, 'input_schema', None):
             doc['input_schema'] = get_input_schema_doc(method.input_schema)
@@ -409,41 +425,39 @@ def get_output_source(apidoc, url, rh_class):
 
             parts.append(str(p))
 
-        extra = []
-        for line in docparts[1:]:
-            line = line.strip()
-            if line.startswith("@api"):
-                extra.append(line)
-
-        parts += extra
-
         doc = "\n".join(parts)
-        pysrc = generate_py_def(method_type, doc)
+        spaces = " " * 8
+        doc = indent(doc, spaces)
+        pysrc = generate_py_def(method_type,
+                                spaces + method_docstring,
+                                doc)
+
         src.append(pysrc)
 
     src = "\n".join(src)
     return src
 
 
-def generate_py_def(func_name, docstring):
+def generate_py_def(func_name, docstring, initial_docstring=""):
     """Return dummy python source containing one function with docstring.
 
     :type  func_name: str
     :param func_name: function name
     :type  docstring: str
     :param docstring: docstring text (not indented)
+    :type  initial_docstring: str
+    :param initial_docstring: initial docstring
     :rtype: str
     :returns: the python source code
     """
-    docstring = docstring.replace("\n", "\n    ")
-
     src = '''
 def %s():
     """
-    %s
+%s
+%s
     """
     pass
-''' % (func_name, docstring)
+''' % (func_name, docstring, initial_docstring)
 
     lines = [line.rstrip() for line in src.split("\n")]
     src = '\n'.join(lines)
